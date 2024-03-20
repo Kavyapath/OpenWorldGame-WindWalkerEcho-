@@ -10,6 +10,9 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GroomComponent.h"
+#include "Items/Item.h"
+#include "Items/Weapons/Weapon.h"
+#include "Items/Weapons/Weapon1.h"
 
 // Sets default values
 AWindWalkerCharacter::AWindWalkerCharacter()
@@ -21,12 +24,14 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 
+	OriginalSpeed = GetCharacterMovement()->MaxWalkSpeed;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0);
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	CameraBoom->SetupAttachment(GetRootComponent());
 	CameraBoom->TargetArmLength = 300.f;
+
 
 	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	ViewCamera->SetupAttachment(CameraBoom);
@@ -38,6 +43,10 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 	EyeBrow = CreateDefaultSubobject<UGroomComponent>(TEXT("EyeBrows"));
 	EyeBrow->SetupAttachment(GetMesh());
 	EyeBrow->AttachmentName = TEXT("head");
+
+
+		
+
 
 
 }
@@ -64,6 +73,8 @@ void AWindWalkerCharacter::BeginPlay()
 
 void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 {
+
+	
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	//controller(Mouse) can only rotate in XY axis remenber that  (Rotation along X Axis) is Controller is at (0,0,0) and Rotate by 45 Degree in XY plane now Controller Rotation becomes (45,45,0)
    //FRotationMatrix(YawRotation) Simple means Rotation Maxtrix formula Rotation Along ZAxis(YawRotation) Go And check the formula(According to unreal engine gizmo the XAxis Points to the forward direction)
@@ -78,12 +89,66 @@ void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 	AddMovementInput(RightDirection, MovementVector.X);
 }
 
+
+
 void AWindWalkerCharacter::Look(const FInputActionValue& Value)
 {
 	const FVector2D AxisValue = Value.Get<FVector2D>();
 	if (GetController()) {
 		AddControllerPitchInput(AxisValue.Y * RotationRate * GetWorld()->GetDeltaSeconds());
 		AddControllerYawInput(AxisValue.X * RotationRate * GetWorld()->GetDeltaSeconds());
+	}
+}
+
+void AWindWalkerCharacter::LKeyPressed()
+{
+	//now cast the item in to the weapon
+	AWeapon1* Weapon1 = Cast<AWeapon1>(OverlappingItem);
+	if (Weapon1) {
+		Weapon1->Equip(this->GetMesh(), FName("LeftHandSocket"));
+		CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+	}
+
+}
+
+void AWindWalkerCharacter::Sprint()
+{
+
+	if(GetCharacterMovement()->MaxWalkSpeed == 0){
+		return;
+		
+	}
+	else {
+		IsSprinting = true;
+		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
+		CameraBoom->TargetArmLength = 370.f;
+		AddControllerPitchInput(10.f);
+	}
+
+
+	
+}
+
+void AWindWalkerCharacter::StopSprinting()
+{
+	
+	
+		IsSprinting = false;
+		GetCharacterMovement()->MaxWalkSpeed = OriginalSpeed;
+		CameraBoom->TargetArmLength = 300.f;
+		AddControllerPitchInput(0.f);
+	
+	
+	
+}
+
+void AWindWalkerCharacter::RKeyPressed()
+{
+	//now cast the item in to the weapon
+	AWeapon* Weapon = Cast<AWeapon>(OverlappingItem);
+	if (Weapon) {
+		Weapon->Equip(this->GetMesh(), FName("RightHandSocket"));
+		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
 	}
 }
 
@@ -102,6 +167,10 @@ void AWindWalkerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Look);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);//for now bind it to charcter class jump function
+		EnhancedInputComponent->BindAction(RightWeaponEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::RKeyPressed);
+		EnhancedInputComponent->BindAction(LeftWeaponEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::LKeyPressed);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AWindWalkerCharacter::Sprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AWindWalkerCharacter::StopSprinting);
 	}
 
 

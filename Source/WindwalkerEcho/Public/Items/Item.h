@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "Item.generated.h"
 
+class USphereComponent;
+
 UCLASS()
 class WINDWALKERECHO_API AItem : public AActor
 {
@@ -29,14 +31,27 @@ protected:
 	UFUNCTION(BlueprintPure)
 		float TransformedCos();
 
+	UFUNCTION()
+		virtual void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent,AActor* OtherActor, UPrimitiveComponent* OtherActorComponent,int32 OtherBodyIndex, bool bFromSweep,const FHitResult& SweepResult);//this is the callback that we are binding to the OnComponentBeginOverlap Delegate with same input types
+	
+	UFUNCTION()
+		virtual void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherActorComponent, int32 OtherBodyIndex);
 
-private:
-	float RunningTime;
-	float Amplitude = 0.25f;
-	float SpeedUpToSin = 5.f;
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly)
+		UStaticMeshComponent* ItemMesh;
 
 	UPROPERTY(VisibleAnywhere)
-		UStaticMeshComponent* ItemMesh;
+		class USkeletalMeshComponent* SwordMesh;
+
+	UPROPERTY(VisibleAnywhere)
+		USphereComponent* Sphere;
+private:
+	float RunningTime;
+	float Amplitude = 0.50f;
+	float SpeedUpToSin = 10.f;
+
+
+
 };
 
 template<typename T>

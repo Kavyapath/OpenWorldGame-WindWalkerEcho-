@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
+#include "CharacterTypes.h"
 #include "WindWalkerAnimInstance.generated.h"
 
 /**
@@ -31,5 +32,10 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = Movement)
 		bool IsFalling;
-	
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		bool IsSprinting;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Movement | Charcter State")
+	ECharacterState CharacterState;
 };

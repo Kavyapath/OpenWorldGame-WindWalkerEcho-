@@ -5,7 +5,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "CharacterTypes.h"
 #include "WindWalkerCharacter.generated.h"
+
+
+
 
 
 class UInputMappingContext;
@@ -13,6 +17,7 @@ class UInputAction;
 class USpringArmComponent;
 class UCameraComponent;
 class UGroomComponent;
+class AItem;
 UCLASS()
 class WINDWALKERECHO_API AWindWalkerCharacter : public ACharacter
 {
@@ -40,6 +45,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 		UInputAction* JumpAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* RightWeaponEquipAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* LeftWeaponEquipAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* SprintAction;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
 		UGroomComponent* Hair;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
@@ -48,6 +62,10 @@ protected:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void RKeyPressed();
+	void LKeyPressed();
+	void Sprint();
+	void StopSprinting();
 
 public:
 	// Called every frame
@@ -57,15 +75,43 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 private:
+
+	ECharacterState CharacterState = ECharacterState::ECS_UnEquipped;
+
 	UPROPERTY(VisibleAnywhere)
 		USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere)
 		UCameraComponent* ViewCamera;
 
-
-
 	UPROPERTY(EditAnywhere)
 		float RotationRate = 30;
+
+	UPROPERTY(EditAnywhere)
+		bool IsSprinting ;
+
+	UPROPERTY(VisibleInstanceOnly)
+		AItem* OverlappingItem;
+
+	UPROPERTY(EditAnywhere)
+		float SprintSpeed = 1300;
+
+	UPROPERTY(EditAnywhere)
+		float OriginalSpeed ;
+
+
+
+
+public:
+	FORCEINLINE void SetOverlappingItem(AItem* Item) {
+		OverlappingItem = Item;
+	}
+
+	 FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }
+
+	 FORCEINLINE bool GetIsSprinting() {
+		 return IsSprinting;
+	 }
+		
 
 };

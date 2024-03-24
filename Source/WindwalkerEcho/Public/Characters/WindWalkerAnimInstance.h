@@ -36,6 +36,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Movement)
 		bool IsSprinting;
 
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		bool RunToStop;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Movement | Charcter State")
 	ECharacterState CharacterState;
 };

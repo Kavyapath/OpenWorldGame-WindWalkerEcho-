@@ -17,6 +17,7 @@ class WINDWALKERECHO_API AWeapon : public AItem
 public:
 
 	void Equip(USceneComponent* InParent,FName InSocketName);
+	void AttachMeshToSocket(USceneComponent* InParent, const FName& InSocketName);
 
 protected:
 

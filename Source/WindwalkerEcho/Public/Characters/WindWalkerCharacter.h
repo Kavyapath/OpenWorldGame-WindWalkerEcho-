@@ -18,6 +18,10 @@ class USpringArmComponent;
 class UCameraComponent;
 class UGroomComponent;
 class AItem;
+class UAnimMontage;
+class AWeapon;
+class AWeapon1;
+
 UCLASS()
 class WINDWALKERECHO_API AWindWalkerCharacter : public ACharacter
 {
@@ -46,13 +50,24 @@ protected:
 		UInputAction* JumpAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-		UInputAction* RightWeaponEquipAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-		UInputAction* LeftWeaponEquipAction;
+		UInputAction* WeaponEquipAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 		UInputAction* SprintAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* AttackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* WeaponUnEquipAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* OneWeaponAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* DualWeaponAction;
+
+
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
 		UGroomComponent* Hair;
@@ -62,10 +77,29 @@ protected:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
-	void RKeyPressed();
-	void LKeyPressed();
+	void EKeyPressed();
+	void QKeyPressed();
 	void Sprint();
 	void StopSprinting();
+	void Attack();
+	void PlayAttackMontageOneHandedSword();
+	bool CanOneHandedSwordAttack();
+	bool CanDisArm();
+	bool CanArm();
+	void PlayEquipMontage(FName SectionName);
+	void OneWeaponCharacterState();
+	void DualWeaponCharacterState();
+
+	UFUNCTION(BlueprintCallable)
+		void AttackEnd();
+
+	UFUNCTION(BlueprintCallable)
+		void DisArm();
+
+	UFUNCTION(BlueprintCallable)
+		void Arm();
+
+
 
 public:
 	// Called every frame
@@ -77,6 +111,10 @@ public:
 private:
 
 	ECharacterState CharacterState = ECharacterState::ECS_UnEquipped;
+
+
+	UPROPERTY(BlueprintReadWrite,meta=(AllowPrivateAccess="true"))
+	EActionState ActionState = EActionState::EAS_UnOccupied;
 
 	UPROPERTY(VisibleAnywhere)
 		USpringArmComponent* CameraBoom;
@@ -90,8 +128,17 @@ private:
 	UPROPERTY(EditAnywhere)
 		bool IsSprinting ;
 
+	UPROPERTY(EditAnywhere)
+		bool RunToStop;
+
 	UPROPERTY(VisibleInstanceOnly)
 		AItem* OverlappingItem;
+
+	UPROPERTY(VisibleInstanceOnly)
+		AWeapon* EquippedWeapon;
+
+	UPROPERTY(VisibleInstanceOnly)
+		AWeapon1* EquippedWeaponLeft;
 
 	UPROPERTY(EditAnywhere)
 		float SprintSpeed = 1300;
@@ -100,6 +147,19 @@ private:
 		float OriginalSpeed ;
 
 
+
+
+	/*
+	* Animations Montage
+	*/
+
+	UPROPERTY(EditDefaultsOnly,Category=Animations_Montages)
+	UAnimMontage* AttackMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = Animations_Montages)
+		UAnimMontage* EquipMontage;
+
+	
 
 
 public:
@@ -111,6 +171,9 @@ public:
 
 	 FORCEINLINE bool GetIsSprinting() {
 		 return IsSprinting;
+	 }
+	 FORCEINLINE bool GetRunToStop() {
+		 return RunToStop;
 	 }
 		
 

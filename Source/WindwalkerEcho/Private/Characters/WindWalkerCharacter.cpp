@@ -13,6 +13,7 @@
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
 #include "Items/Weapons/Weapon1.h"
+#include "Animation/AnimMontage.h"
 
 // Sets default values
 AWindWalkerCharacter::AWindWalkerCharacter()
@@ -73,8 +74,10 @@ void AWindWalkerCharacter::BeginPlay()
 
 void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 {
-
 	
+	if (ActionState == EActionState::EAS_Attacking) {
+		return;
+	}
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	//controller(Mouse) can only rotate in XY axis remenber that  (Rotation along X Axis) is Controller is at (0,0,0) and Rotate by 45 Degree in XY plane now Controller Rotation becomes (45,45,0)
    //FRotationMatrix(YawRotation) Simple means Rotation Maxtrix formula Rotation Along ZAxis(YawRotation) Go And check the formula(According to unreal engine gizmo the XAxis Points to the forward direction)
@@ -100,57 +103,210 @@ void AWindWalkerCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
-void AWindWalkerCharacter::LKeyPressed()
-{
-	//now cast the item in to the weapon
-	AWeapon1* Weapon1 = Cast<AWeapon1>(OverlappingItem);
-	if (Weapon1) {
-		Weapon1->Equip(this->GetMesh(), FName("LeftHandSocket"));
-		CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
-	}
-
-}
 
 void AWindWalkerCharacter::Sprint()
 {
-
-	if(GetCharacterMovement()->MaxWalkSpeed == 0){
+	FVector Zero(0.f, 0.f, 0.f);
+	if (GetCharacterMovement()->Velocity == Zero) {
 		return;
-		
+
 	}
-	else {
 		IsSprinting = true;
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
-		CameraBoom->TargetArmLength = 370.f;
-		AddControllerPitchInput(10.f);
-	}
-
-
-	
+		CameraBoom->TargetArmLength = 400.f;
+		AddControllerPitchInput(15.f);
+		RunToStop = false;
 }
 
 void AWindWalkerCharacter::StopSprinting()
 {
-	
-	
 		IsSprinting = false;
 		GetCharacterMovement()->MaxWalkSpeed = OriginalSpeed;
 		CameraBoom->TargetArmLength = 300.f;
 		AddControllerPitchInput(0.f);
+		RunToStop = true;
+}
+
+void AWindWalkerCharacter::Attack()
+{
 	
-	
+	if (CanOneHandedSwordAttack()) {
+		
+			PlayAttackMontageOneHandedSword();
+			ActionState = EActionState::EAS_Attacking;
+		
+
+	}
+	else if (CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon) {
+
+	}
+	else {
+		//Character state is UnEquipped
+
+	}
+}
+
+void AWindWalkerCharacter::PlayAttackMontageOneHandedSword()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && AttackMontage) {
+
+		
+		AnimInstance->Montage_Play(AttackMontage);
+		int32 Selection = FMath::RandRange(0, 3);
+		FName SectionName = FName();
+		switch (Selection)
+		{
+		case 0:
+			SectionName = FName("Attack1");
+			break;
+		case 1:
+			SectionName = FName("Attack2");
+			break;
+		case 2:
+			SectionName = FName("Attack3");
+			break;
+		case 3:
+			SectionName = FName("Attack4");
+			break;
+		default:
+			break;
+		}
+		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
+		
+	}
+}
+void AWindWalkerCharacter::PlayEquipMontage(FName SectionName)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && EquipMontage) {
+
+		AnimInstance->Montage_Play(EquipMontage);
+
+		AnimInstance->Montage_JumpToSection(SectionName,EquipMontage);
+	}
+}
+
+void AWindWalkerCharacter::OneWeaponCharacterState()
+{
+	if (EquippedWeapon) {
+		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+	}
 	
 }
 
-void AWindWalkerCharacter::RKeyPressed()
+void AWindWalkerCharacter::DualWeaponCharacterState()
+{
+	if (EquippedWeapon && EquippedWeaponLeft) {
+		CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+	}
+}
+
+bool AWindWalkerCharacter::CanOneHandedSwordAttack()
+{
+	return CharacterState == ECharacterState::ECS_EquippedOneHandedWeapon &&
+			ActionState == EActionState::EAS_UnOccupied;
+}
+
+bool AWindWalkerCharacter::CanDisArm()
+{
+	return ActionState == EActionState::EAS_UnOccupied &&
+		CharacterState != ECharacterState::ECS_UnEquipped ;
+}
+
+bool AWindWalkerCharacter::CanArm()
+{
+	return ActionState == EActionState::EAS_UnOccupied &&
+		CharacterState == ECharacterState::ECS_UnEquipped &&
+		EquippedWeapon;
+}
+
+void AWindWalkerCharacter::QKeyPressed()
+{
+	if (CanDisArm())
+	{
+		PlayEquipMontage(FName("UnEquip"));
+
+		CharacterState = ECharacterState::ECS_UnEquipped;
+	}
+	
+	else if (CanArm()) {
+		PlayEquipMontage(FName("Equip"));
+		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+		if (EquippedWeaponLeft != nullptr) {
+			CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+		}
+	}
+}
+
+void AWindWalkerCharacter::AttackEnd()
+{
+	ActionState = EActionState::EAS_UnOccupied;
+}
+
+void AWindWalkerCharacter::DisArm()
+{
+	if (EquippedWeapon) {
+		EquippedWeapon->AttachMeshToSocket(GetMesh(),FName("RightHandSword"));
+	}
+	if (EquippedWeaponLeft) {
+		EquippedWeaponLeft->AttachMeshToSocket(GetMesh(),FName("LeftHandSword"));
+	}
+}
+
+void AWindWalkerCharacter::Arm()
+{
+
+	if (CharacterState == ECharacterState::ECS_EquippedOneHandedWeapon) {
+		if (EquippedWeapon) {
+		
+			EquippedWeapon->AttachMeshToSocket(GetMesh(),FName("RightHandSocket"));
+		}
+	}
+
+	else if(CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon){
+		if (EquippedWeapon) {
+			EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
+		}
+
+		if (EquippedWeaponLeft) {
+		
+		    EquippedWeaponLeft->AttachMeshToSocket(GetMesh(), FName("LeftHandSocket"));
+		}
+	}
+
+	
+}
+
+
+
+void AWindWalkerCharacter::EKeyPressed()
 {
 	//now cast the item in to the weapon
 	AWeapon* Weapon = Cast<AWeapon>(OverlappingItem);
 	if (Weapon) {
+
 		Weapon->Equip(this->GetMesh(), FName("RightHandSocket"));
 		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+		OverlappingItem = nullptr;
+		EquippedWeapon = Weapon;
+
+
 	}
+	if (EquippedWeapon) {
+		AWeapon1* Weapon1 = Cast<AWeapon1>(OverlappingItem);
+		if (Weapon1) {
+
+			Weapon1->Equip(this->GetMesh(), FName("LeftHandSocket"));
+			CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+			OverlappingItem = nullptr;
+			EquippedWeaponLeft = Weapon1;
+		}
+	}
+	
 }
+
+
 
 // Called every frame
 void AWindWalkerCharacter::Tick(float DeltaTime)
@@ -167,10 +323,13 @@ void AWindWalkerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Look);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);//for now bind it to charcter class jump function
-		EnhancedInputComponent->BindAction(RightWeaponEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::RKeyPressed);
-		EnhancedInputComponent->BindAction(LeftWeaponEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::LKeyPressed);
+		EnhancedInputComponent->BindAction(WeaponEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::EKeyPressed);
+		EnhancedInputComponent->BindAction(WeaponUnEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::QKeyPressed);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AWindWalkerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AWindWalkerCharacter::StopSprinting);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Attack);
+		EnhancedInputComponent->BindAction(OneWeaponAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::OneWeaponCharacterState);
+		EnhancedInputComponent->BindAction(DualWeaponAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DualWeaponCharacterState);
 	}
 
 

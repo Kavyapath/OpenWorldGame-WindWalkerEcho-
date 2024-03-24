@@ -26,6 +26,7 @@ void  UWindWalkerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		GroundSpeed=UKismetMathLibrary::VSizeXY(WindWalkerCharacterMovement->Velocity) ;//find the magnitude of velocity vector only in XY Direction sqrt(X^2 + Y^2);
 		IsFalling = WindWalkerCharacterMovement->IsFalling();
 		IsSprinting = WindWalker->GetIsSprinting();
+		RunToStop = WindWalker->GetRunToStop();
 
 		CharacterState = WindWalker->GetCharacterState();
 	}

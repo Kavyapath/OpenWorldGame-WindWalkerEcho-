@@ -14,6 +14,8 @@
 #include "Items/Weapons/Weapon.h"
 #include "Items/Weapons/Weapon1.h"
 #include "Animation/AnimMontage.h"
+#include "Components/BoxComponent.h"
+
 
 // Sets default values
 AWindWalkerCharacter::AWindWalkerCharacter()
@@ -31,7 +33,7 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	CameraBoom->SetupAttachment(GetRootComponent());
-	CameraBoom->TargetArmLength = 300.f;
+	CameraBoom->TargetArmLength = 400.f;
 
 
 	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
@@ -44,11 +46,6 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 	EyeBrow = CreateDefaultSubobject<UGroomComponent>(TEXT("EyeBrows"));
 	EyeBrow->SetupAttachment(GetMesh());
 	EyeBrow->AttachmentName = TEXT("head");
-
-
-		
-
-
 
 }
 
@@ -75,7 +72,7 @@ void AWindWalkerCharacter::BeginPlay()
 void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 {
 	
-	if (ActionState == EActionState::EAS_Attacking) {
+	if (ActionState != EActionState::EAS_UnOccupied) {
 		return;
 	}
 	const FVector2D MovementVector = Value.Get<FVector2D>();
@@ -113,33 +110,30 @@ void AWindWalkerCharacter::Sprint()
 	}
 		IsSprinting = true;
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
-		CameraBoom->TargetArmLength = 400.f;
-		AddControllerPitchInput(15.f);
+		CustomCameraSetting(500.f,10.f);
 		RunToStop = false;
 }
 
 void AWindWalkerCharacter::StopSprinting()
 {
+	
 		IsSprinting = false;
 		GetCharacterMovement()->MaxWalkSpeed = OriginalSpeed;
-		CameraBoom->TargetArmLength = 300.f;
-		AddControllerPitchInput(0.f);
+		DefaultCameraSetting();
 		RunToStop = true;
 }
 
 void AWindWalkerCharacter::Attack()
 {
 	
-	if (CanOneHandedSwordAttack()) {
+	if (CanOneHandedSwordAttack() || CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon) {
 		
 			PlayAttackMontageOneHandedSword();
 			ActionState = EActionState::EAS_Attacking;
 		
 
 	}
-	else if (CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon) {
-
-	}
+	
 	else {
 		//Character state is UnEquipped
 
@@ -187,20 +181,7 @@ void AWindWalkerCharacter::PlayEquipMontage(FName SectionName)
 	}
 }
 
-void AWindWalkerCharacter::OneWeaponCharacterState()
-{
-	if (EquippedWeapon) {
-		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
-	}
-	
-}
 
-void AWindWalkerCharacter::DualWeaponCharacterState()
-{
-	if (EquippedWeapon && EquippedWeaponLeft) {
-		CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
-	}
-}
 
 bool AWindWalkerCharacter::CanOneHandedSwordAttack()
 {
@@ -228,6 +209,7 @@ void AWindWalkerCharacter::QKeyPressed()
 		PlayEquipMontage(FName("UnEquip"));
 
 		CharacterState = ECharacterState::ECS_UnEquipped;
+		ActionState = EActionState::EAS_EquippingWeapon;
 	}
 	
 	else if (CanArm()) {
@@ -236,6 +218,7 @@ void AWindWalkerCharacter::QKeyPressed()
 		if (EquippedWeaponLeft != nullptr) {
 			CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
 		}
+		ActionState = EActionState::EAS_EquippingWeapon;
 	}
 }
 
@@ -278,13 +261,48 @@ void AWindWalkerCharacter::Arm()
 	
 }
 
+void AWindWalkerCharacter::FinishEquipping()
+{
+	ActionState = EActionState::EAS_UnOccupied;
+}
+
+void AWindWalkerCharacter::CustomCameraSetting(float SpringArmLength, float Pitch)
+{
+	CameraBoom->TargetArmLength = SpringArmLength;
+	AddControllerPitchInput(Pitch);
+}
+
+void AWindWalkerCharacter::DefaultCameraSetting()
+{
+	CameraBoom->TargetArmLength = 400.f;
+	AddControllerPitchInput(0.f);
+}
+
+void AWindWalkerCharacter::CustomCameraSettingForAnimations()
+{
+	CustomCameraSetting(600.f,1.f);
+}
+
+void AWindWalkerCharacter::SetWeaponcollisionEnabled(ECollisionEnabled::Type CollisionEnabled)
+{
+	if (EquippedWeapon && EquippedWeapon->GetWeaponBox()) {
+		EquippedWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
+		EquippedWeapon->IgnoreActors.Empty();
+	}
+	if (EquippedWeaponLeft && EquippedWeaponLeft->GetWeaponBox()) {
+		EquippedWeaponLeft->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
+		EquippedWeaponLeft->IgnoreActors.Empty();
+	}
+}
+
+
 
 
 void AWindWalkerCharacter::EKeyPressed()
 {
 	//now cast the item in to the weapon
 	AWeapon* Weapon = Cast<AWeapon>(OverlappingItem);
-	if (Weapon) {
+	if (Weapon && EquippedWeapon==nullptr) {
 
 		Weapon->Equip(this->GetMesh(), FName("RightHandSocket"));
 		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
@@ -293,8 +311,8 @@ void AWindWalkerCharacter::EKeyPressed()
 
 
 	}
-	if (EquippedWeapon) {
-		AWeapon1* Weapon1 = Cast<AWeapon1>(OverlappingItem);
+	else if (EquippedWeapon) {
+		AWeapon* Weapon1 = Cast<AWeapon>(OverlappingItem);
 		if (Weapon1) {
 
 			Weapon1->Equip(this->GetMesh(), FName("LeftHandSocket"));
@@ -328,8 +346,7 @@ void AWindWalkerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AWindWalkerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AWindWalkerCharacter::StopSprinting);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Attack);
-		EnhancedInputComponent->BindAction(OneWeaponAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::OneWeaponCharacterState);
-		EnhancedInputComponent->BindAction(DualWeaponAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DualWeaponCharacterState);
+
 	}
 
 

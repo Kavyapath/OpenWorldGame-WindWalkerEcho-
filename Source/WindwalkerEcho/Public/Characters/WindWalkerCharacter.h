@@ -61,11 +61,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 		UInputAction* WeaponUnEquipAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-		UInputAction* OneWeaponAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-		UInputAction* DualWeaponAction;
 
 
 
@@ -87,8 +83,7 @@ protected:
 	bool CanDisArm();
 	bool CanArm();
 	void PlayEquipMontage(FName SectionName);
-	void OneWeaponCharacterState();
-	void DualWeaponCharacterState();
+
 
 	UFUNCTION(BlueprintCallable)
 		void AttackEnd();
@@ -98,6 +93,21 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 		void Arm();
+
+	UFUNCTION(BlueprintCallable)
+		void FinishEquipping();
+
+	UFUNCTION(BlueprintCallable)
+		void CustomCameraSetting(float SpringArmLength, float Pitch);
+
+	UFUNCTION(BlueprintCallable)
+		void DefaultCameraSetting();
+
+	UFUNCTION(BlueprintCallable)
+		void CustomCameraSettingForAnimations();
+
+	UFUNCTION(BlueprintCallable)
+		void SetWeaponcollisionEnabled(ECollisionEnabled::Type CollisionEnabled);
 
 
 
@@ -138,7 +148,7 @@ private:
 		AWeapon* EquippedWeapon;
 
 	UPROPERTY(VisibleInstanceOnly)
-		AWeapon1* EquippedWeaponLeft;
+		AWeapon* EquippedWeaponLeft;
 
 	UPROPERTY(EditAnywhere)
 		float SprintSpeed = 1300;

@@ -38,7 +38,18 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = Movement)
 		bool RunToStop;
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		bool IsBlocking;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Movement | Charcter State")
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		bool BlockToStop;
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
 	ECharacterState CharacterState;
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		EActionState ActionState;
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		TEnumAsByte<EDeathPose> DeathPose;
 };

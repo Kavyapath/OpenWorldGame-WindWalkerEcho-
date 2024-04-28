@@ -27,7 +27,11 @@ void  UWindWalkerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		IsFalling = WindWalkerCharacterMovement->IsFalling();
 		IsSprinting = WindWalker->GetIsSprinting();
 		RunToStop = WindWalker->GetRunToStop();
+		IsBlocking = WindWalker->GetIsBlocking();
+		BlockToStop = WindWalker->GetBlockToStop();
 
 		CharacterState = WindWalker->GetCharacterState();
+		ActionState = WindWalker->GetActionState();
+		DeathPose = WindWalker->GetDeathPose();
 	}
 }

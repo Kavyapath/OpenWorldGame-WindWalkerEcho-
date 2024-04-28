@@ -6,16 +6,24 @@
 #include "EnhancedInputComponent.h"
 #include "Components/InputComponent.h"
 #include "InputMappingContext.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GroomComponent.h"
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
-#include "Items/Weapons/Weapon1.h"
 #include "Animation/AnimMontage.h"
-#include "Components/BoxComponent.h"
-
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "HUD/WindWalkerHUD.h"
+#include "HUD/WindWalkerOverlay.h"
+#include "Components/AttributeComponent.h"
+#include "Items/Soul.h"
+#include "Items/Treasure/Treasure.h"
+#include "GameFramework/PlayerController.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "WindwalkerEcho/DebugMacros.h"
 
 // Sets default values
 AWindWalkerCharacter::AWindWalkerCharacter()
@@ -31,6 +39,12 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0);
 
+	GetMesh()->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	GetMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Overlap);
+	GetMesh()->SetGenerateOverlapEvents(true);
+
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	CameraBoom->SetupAttachment(GetRootComponent());
 	CameraBoom->TargetArmLength = 400.f;
@@ -38,6 +52,9 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 
 	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	ViewCamera->SetupAttachment(CameraBoom);
+
+	Niagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara Effect"));
+	Niagara->SetupAttachment(ViewCamera);
 
 	Hair = CreateDefaultSubobject<UGroomComponent>(TEXT("Hair"));
 	Hair->SetupAttachment(GetMesh());
@@ -53,6 +70,28 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 {
 }*/
 
+float AWindWalkerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+
+	if (ActionState == EActionState::EAS_Blocking) { 
+		HandleDamage(0.f);
+		SetHUDHealth();
+	return 0.f;
+	}
+	else {
+		HandleDamage(DamageAmount);
+		SetHUDHealth();
+		return DamageAmount;
+	}
+}
+
+void AWindWalkerCharacter::SetHUDHealth()
+{
+	if (WindWalkerOverlay && Attribute) {
+		WindWalkerOverlay->SetHealthBarPercent(Attribute->GetHealthPercent());
+	}
+}
+
 // Called when the game starts or when spawned
 void AWindWalkerCharacter::BeginPlay()
 {
@@ -62,15 +101,39 @@ void AWindWalkerCharacter::BeginPlay()
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer())) {
 			Subsystem->AddMappingContext(WindWalkerContext, 0);
 		}
-
-
+		
 	}
+	InitializeOverlay(PlayerController);
+	Tags.Add(FName("WindWalker"));
 
+	
+	Niagara->Deactivate();
 
+}
+
+void AWindWalkerCharacter::InitializeOverlay(APlayerController* PlayerController)
+{
+	if (PlayerController) {
+		AWindWalkerHUD* WindWalkerHUD = Cast<AWindWalkerHUD>(PlayerController->GetHUD());//it return the HUD type pointer and we will cast it in to its child class
+		WindWalkerOverlay = WindWalkerHUD->GetWindWalkerOverlay();
+		if (WindWalkerOverlay && Attribute)
+		{
+			WindWalkerOverlay->SetHealthBarPercent(Attribute->GetHealthPercent());
+			WindWalkerOverlay->SetStaminaBarPercent(1.f);
+			WindWalkerOverlay->SetGold(0.f);
+			WindWalkerOverlay->SetSoul(0.f);
+		}
+	}
+}
+
+int32 AWindWalkerCharacter::PlayAttackMontageTwoHandedSword()
+{
+	return PlayRandomMontageSections(DualBladeMontage, DualAttackMontageSections);
 }
 
 void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 {
+	DefaultCameraSetting();
 	
 	if (ActionState != EActionState::EAS_UnOccupied) {
 		return;
@@ -93,6 +156,7 @@ void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 
 void AWindWalkerCharacter::Look(const FInputActionValue& Value)
 {
+	
 	const FVector2D AxisValue = Value.Get<FVector2D>();
 	if (GetController()) {
 		AddControllerPitchInput(AxisValue.Y * RotationRate * GetWorld()->GetDeltaSeconds());
@@ -108,68 +172,103 @@ void AWindWalkerCharacter::Sprint()
 		return;
 
 	}
+
+		Niagara->Activate();
 		IsSprinting = true;
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
-		CustomCameraSetting(500.f,10.f);
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+		CustomCameraSetting(450.f,1.f);
 		RunToStop = false;
 }
 
 void AWindWalkerCharacter::StopSprinting()
 {
-	
+		Niagara->Deactivate();
 		IsSprinting = false;
 		GetCharacterMovement()->MaxWalkSpeed = OriginalSpeed;
+		GetCharacterMovement()->bOrientRotationToMovement = false;
 		DefaultCameraSetting();
 		RunToStop = true;
 }
 
+void AWindWalkerCharacter::StartBlock()
+{
+	if (!IsAlive()) { return; }
+	ActionState = EActionState::EAS_Blocking;
+	IsBlocking = true;
+	BlockToStop = false;
+	
+}
+
+void AWindWalkerCharacter::EndBlock()
+{
+	if (!IsAlive()) { return; }
+	ActionState = EActionState::EAS_UnOccupied;
+	IsBlocking = false;
+	BlockToStop = true;
+	
+}
+
 void AWindWalkerCharacter::Attack()
 {
-	
-	if (CanOneHandedSwordAttack() || CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon) {
+	Super::Attack();
+	if (!IsAlive()) { return; }
+	if (CanOneHandedSwordAttack()) {
 		
-			PlayAttackMontageOneHandedSword();
+			PlayAttackMontage();
 			ActionState = EActionState::EAS_Attacking;
 		
 
 	}
 	
-	else {
-		//Character state is UnEquipped
-
-	}
+	
 }
 
-void AWindWalkerCharacter::PlayAttackMontageOneHandedSword()
+void AWindWalkerCharacter::DualBladeAttack()
 {
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance && AttackMontage) {
-
-		
-		AnimInstance->Montage_Play(AttackMontage);
-		int32 Selection = FMath::RandRange(0, 3);
-		FName SectionName = FName();
-		switch (Selection)
-		{
-		case 0:
-			SectionName = FName("Attack1");
-			break;
-		case 1:
-			SectionName = FName("Attack2");
-			break;
-		case 2:
-			SectionName = FName("Attack3");
-			break;
-		case 3:
-			SectionName = FName("Attack4");
-			break;
-		default:
-			break;
-		}
-		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
-		
+	if (!IsAlive()) { return; }
+	Super::Attack();
+	if (CanTwoHandedSwordAttack()) {
+		PlayAttackMontageTwoHandedSword();
+		ActionState = EActionState::EAS_Attacking;
 	}
 }
+
+void AWindWalkerCharacter::DashDodgeFront()
+{
+	if (!IsAlive()) { return; }
+	ActionState = EActionState::EAS_Dodging;
+	PlayMontageSection(DashDodgeMontage, FName("DodgeFront"));
+}
+
+void AWindWalkerCharacter::DashDodgeBack()
+{
+	if (!IsAlive()) { return; }
+	ActionState = EActionState::EAS_Dodging;
+	PlayMontageSection(DashDodgeMontage, FName("DodgeBack"));
+}
+
+void AWindWalkerCharacter::DashDodgeLeft()
+{
+	if (!IsAlive()) { return; }
+	ActionState = EActionState::EAS_Dodging;
+	PlayMontageSection(DashDodgeMontage, FName("DodgeLeft"));
+}
+
+void AWindWalkerCharacter::DashDodgeRight()
+{
+	if (!IsAlive()) { return; }
+	ActionState = EActionState::EAS_Dodging;
+	PlayMontageSection(DashDodgeMontage, FName("DodgeRight"));
+}
+
+void AWindWalkerCharacter::Die()
+{
+	Super::Die();
+	ActionState = EActionState::EAS_Dead;
+	DisAbleMeshCollision();
+}
+
 void AWindWalkerCharacter::PlayEquipMontage(FName SectionName)
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
@@ -181,12 +280,35 @@ void AWindWalkerCharacter::PlayEquipMontage(FName SectionName)
 	}
 }
 
+void AWindWalkerCharacter::EquipWeapon(AWeapon* Weapon)
+{
+	Weapon->Equip(this->GetMesh(), FName("RightHandSocket"), this, this);
+	CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+	OverlappingItem = nullptr;
+	EquippedWeapon = Weapon;
+}
+
+void AWindWalkerCharacter::EquipWeaponLeft(AWeapon* Weapon)
+{
+
+	Weapon->Equip(this->GetMesh(), FName("LeftHandSocket"), this, this);
+	CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+	OverlappingItem = nullptr;
+	EquippedWeaponLeft = Weapon;
+}
+
 
 
 bool AWindWalkerCharacter::CanOneHandedSwordAttack()
 {
-	return CharacterState == ECharacterState::ECS_EquippedOneHandedWeapon &&
+	return (CharacterState == ECharacterState::ECS_EquippedOneHandedWeapon || CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon) &&
 			ActionState == EActionState::EAS_UnOccupied;
+}
+
+bool AWindWalkerCharacter::CanTwoHandedSwordAttack()
+{
+	return CharacterState == ECharacterState::ECS_EquippedTwoHandedWeapon &&
+		ActionState == EActionState::EAS_UnOccupied;
 }
 
 bool AWindWalkerCharacter::CanDisArm()
@@ -206,20 +328,30 @@ void AWindWalkerCharacter::QKeyPressed()
 {
 	if (CanDisArm())
 	{
-		PlayEquipMontage(FName("UnEquip"));
-
-		CharacterState = ECharacterState::ECS_UnEquipped;
-		ActionState = EActionState::EAS_EquippingWeapon;
+		DisArm();
 	}
 	
 	else if (CanArm()) {
-		PlayEquipMontage(FName("Equip"));
-		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
-		if (EquippedWeaponLeft != nullptr) {
-			CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
-		}
-		ActionState = EActionState::EAS_EquippingWeapon;
+		Arm();
 	}
+}
+
+void AWindWalkerCharacter::Arm()
+{
+	PlayEquipMontage(FName("Equip"));
+	CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+	if (EquippedWeaponLeft != nullptr) {
+		CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+	}
+	ActionState = EActionState::EAS_EquippingWeapon;
+}
+
+void AWindWalkerCharacter::DisArm()
+{
+	PlayEquipMontage(FName("UnEquip"));
+
+	CharacterState = ECharacterState::ECS_UnEquipped;
+	ActionState = EActionState::EAS_EquippingWeapon;
 }
 
 void AWindWalkerCharacter::AttackEnd()
@@ -227,7 +359,21 @@ void AWindWalkerCharacter::AttackEnd()
 	ActionState = EActionState::EAS_UnOccupied;
 }
 
-void AWindWalkerCharacter::DisArm()
+void AWindWalkerCharacter::HitReactEnd()
+{
+	ActionState = EActionState::EAS_UnOccupied;
+}
+
+void AWindWalkerCharacter::DashDodgeEnd()
+{
+	ActionState = EActionState::EAS_UnOccupied;
+}
+
+
+
+
+
+void AWindWalkerCharacter::AttachWeaponToBack()
 {
 	if (EquippedWeapon) {
 		EquippedWeapon->AttachMeshToSocket(GetMesh(),FName("RightHandSword"));
@@ -237,7 +383,7 @@ void AWindWalkerCharacter::DisArm()
 	}
 }
 
-void AWindWalkerCharacter::Arm()
+void AWindWalkerCharacter::AttachWeaponToHand()
 {
 
 	if (CharacterState == ECharacterState::ECS_EquippedOneHandedWeapon) {
@@ -280,20 +426,20 @@ void AWindWalkerCharacter::DefaultCameraSetting()
 
 void AWindWalkerCharacter::CustomCameraSettingForAnimations()
 {
+	CustomCameraSetting(400.f,0.f);
+}
+
+void AWindWalkerCharacter::CustomCameraSettingForDualBladeAnimations()
+{
+	
 	CustomCameraSetting(600.f,1.f);
 }
 
-void AWindWalkerCharacter::SetWeaponcollisionEnabled(ECollisionEnabled::Type CollisionEnabled)
-{
-	if (EquippedWeapon && EquippedWeapon->GetWeaponBox()) {
-		EquippedWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
-		EquippedWeapon->IgnoreActors.Empty();
-	}
-	if (EquippedWeaponLeft && EquippedWeaponLeft->GetWeaponBox()) {
-		EquippedWeaponLeft->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
-		EquippedWeaponLeft->IgnoreActors.Empty();
-	}
-}
+
+
+
+
+
 
 
 
@@ -304,21 +450,14 @@ void AWindWalkerCharacter::EKeyPressed()
 	AWeapon* Weapon = Cast<AWeapon>(OverlappingItem);
 	if (Weapon && EquippedWeapon==nullptr) {
 
-		Weapon->Equip(this->GetMesh(), FName("RightHandSocket"));
-		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
-		OverlappingItem = nullptr;
-		EquippedWeapon = Weapon;
+		EquipWeapon(Weapon);
 
 
 	}
 	else if (EquippedWeapon) {
 		AWeapon* Weapon1 = Cast<AWeapon>(OverlappingItem);
 		if (Weapon1) {
-
-			Weapon1->Equip(this->GetMesh(), FName("LeftHandSocket"));
-			CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
-			OverlappingItem = nullptr;
-			EquippedWeaponLeft = Weapon1;
+			EquipWeaponLeft(Weapon1);
 		}
 	}
 	
@@ -330,6 +469,15 @@ void AWindWalkerCharacter::EKeyPressed()
 void AWindWalkerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	FHitResult OutHitResult;
+	SphereTrace(OutHitResult);
+	AActor* HitActor = OutHitResult.GetActor();
+	if (HitActor && (HitActor->ActorHasTag("Enemy") || HitActor->ActorHasTag("Breakables") )) {
+		CombatTarget = HitActor;
+	
+	}
+
+
 
 }
 
@@ -340,15 +488,101 @@ void AWindWalkerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent)) {
 		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Look);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);//for now bind it to charcter class jump function
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Jump);//for now bind it to charcter class jump function
 		EnhancedInputComponent->BindAction(WeaponEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::EKeyPressed);
 		EnhancedInputComponent->BindAction(WeaponUnEquipAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::QKeyPressed);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AWindWalkerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AWindWalkerCharacter::StopSprinting);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::Attack);
-
+		EnhancedInputComponent->BindAction(DualAttackAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DualBladeAttack);
+		EnhancedInputComponent->BindAction(DashDodgeFrontAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DashDodgeFront);
+		EnhancedInputComponent->BindAction(DashDodgeBackAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DashDodgeBack);
+		EnhancedInputComponent->BindAction(DashDodgeLeftAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DashDodgeLeft);
+		EnhancedInputComponent->BindAction(DashDodgeRightAction, ETriggerEvent::Triggered, this, &AWindWalkerCharacter::DashDodgeRight);
+		EnhancedInputComponent->BindAction(BlockStartAction, ETriggerEvent::Started, this, &AWindWalkerCharacter::StartBlock);
+		EnhancedInputComponent->BindAction(BlockStartAction, ETriggerEvent::Completed, this, &AWindWalkerCharacter::EndBlock);
 	}
 
 
+}
+
+void AWindWalkerCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
+{
+	Super::GetHit_Implementation(ImpactPoint,Hitter);
+	if (ActionState == EActionState::EAS_Blocking) { 
+		return ; }
+	else {
+		SetWeaponcollisionEnabled(ECollisionEnabled::NoCollision);
+		if (Attribute && Attribute->GetHealthPercent() > 0.f) {
+			ActionState = EActionState::EAS_HitReaction;
+
+		}
+	}
+}
+
+void AWindWalkerCharacter::SetOverlappingItem(AItem* Item)
+{
+	OverlappingItem = Item;
+
+}
+
+void AWindWalkerCharacter::AddSouls(ASoul* Soul)
+{
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->AddSouls(Soul->GetSouls());
+		WindWalkerOverlay->SetSoul(Attribute->GetSoul());
+	}
+}
+
+void AWindWalkerCharacter::AddGold(ATreasure* Treasure)
+{
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->AddGold(Treasure->GetGold());
+		WindWalkerOverlay->SetGold(Attribute->GetGold());
+	}
+}
+
+void AWindWalkerCharacter::Jump()
+{
+	if (IsUnOccupied()) {
+		Super::Jump();
+	}
+}
+
+bool AWindWalkerCharacter::IsUnOccupied()
+{
+	return ActionState == EActionState::EAS_UnOccupied;
+}
+
+void AWindWalkerCharacter::SphereTrace(FHitResult& OutHitResult)
+{
+
+	FVector Location = GetActorLocation();
+	Location += FVector(0.f, 0.f, 45.f);
+	
+	FVector ControllerForwardVector = ViewCamera->GetForwardVector();
+
+		//GetActorForwardVector();
+	ControllerForwardVector *= 1500.f;
+	FVector EndTraceLocation = Location + ControllerForwardVector;
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+	
+	 UKismetSystemLibrary::SphereTraceSingle(
+		this,
+		Location,
+		EndTraceLocation,
+		40.f,
+		ETraceTypeQuery::TraceTypeQuery1,
+		false,
+		ActorsToIgnore,
+		EDrawDebugTrace::None,
+		OutHitResult,
+		true
+
+	);
+	
+	
+	
 }
 

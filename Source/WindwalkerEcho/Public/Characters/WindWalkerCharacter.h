@@ -3,8 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "BaseCharacter.h"
 #include "InputActionValue.h"
+#include "Interfaces/PickUpInterface.h"
 #include "CharacterTypes.h"
 #include "WindWalkerCharacter.generated.h"
 
@@ -18,12 +19,14 @@ class USpringArmComponent;
 class UCameraComponent;
 class UGroomComponent;
 class AItem;
+class ASoul;
+class ATreasure;
 class UAnimMontage;
-class AWeapon;
-class AWeapon1;
+
+
 
 UCLASS()
-class WINDWALKERECHO_API AWindWalkerCharacter : public ACharacter
+class WINDWALKERECHO_API AWindWalkerCharacter : public ABaseCharacter,public IPickUpInterface
 {
 	GENERATED_BODY()
 
@@ -31,11 +34,30 @@ public:
 	// Sets default values for this character's properties
 	AWindWalkerCharacter();
 	//virtual void Jump() override;
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+
+	//this function already exist in actor class you can peek its defination
+	virtual void Tick(float DeltaTime) override;
+
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
+	virtual void SetOverlappingItem( AItem* Item) override;
+	virtual void AddSouls(ASoul* Soul) override;
+	virtual void AddGold(ATreasure* Treasure) override;
+	virtual void Jump() override;
+
+
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
+		UGroomComponent* Hair;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
+		UGroomComponent* EyeBrow;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 		UInputMappingContext* WindWalkerContext;
@@ -59,40 +81,81 @@ protected:
 		UInputAction* AttackAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* DualAttackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 		UInputAction* WeaponUnEquipAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* DashDodgeFrontAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* DashDodgeBackAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* DashDodgeLeftAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* DashDodgeRightAction;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
-		UGroomComponent* Hair;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Grooming)
-		UGroomComponent* EyeBrow;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* BlockStartAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+		UInputAction* BlockEndAction;
 
+private:
+	bool IsUnOccupied();
+	void SphereTrace(FHitResult& OutHitResult);
+	/* Callback for input */
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void EKeyPressed();
 	void QKeyPressed();
 	void Sprint();
 	void StopSprinting();
-	void Attack();
-	void PlayAttackMontageOneHandedSword();
-	bool CanOneHandedSwordAttack();
+	void StartBlock();
+	void EndBlock();
+
+	/*Combat*/
+	virtual void Attack() override;
+	void DualBladeAttack();
+	void DashDodgeFront();
+	void DashDodgeBack();
+	void DashDodgeLeft();
+	void DashDodgeRight();
+	virtual void Die() override;
+
+	virtual bool CanOneHandedSwordAttack() override;
+	int32 PlayAttackMontageTwoHandedSword();
+	bool CanTwoHandedSwordAttack();
 	bool CanDisArm();
 	bool CanArm();
+	void Arm();
+	void DisArm();
 	void PlayEquipMontage(FName SectionName);
+	void EquipWeapon(AWeapon* Weapon);
+	void EquipWeaponLeft(AWeapon* Weapon);
 
+
+	/*Overlays and HUD */
+	void InitializeOverlay(APlayerController* PlayerController);
+	void SetHUDHealth();
+	
+	virtual void AttackEnd() override;
+	UFUNCTION(BlueprintCallable)
+		void HitReactEnd();
 
 	UFUNCTION(BlueprintCallable)
-		void AttackEnd();
+		void DashDodgeEnd();
+
+	
 
 	UFUNCTION(BlueprintCallable)
-		void DisArm();
+		void AttachWeaponToBack();
 
 	UFUNCTION(BlueprintCallable)
-		void Arm();
+		void AttachWeaponToHand();
 
 	UFUNCTION(BlueprintCallable)
 		void FinishEquipping();
@@ -107,33 +170,23 @@ protected:
 		void CustomCameraSettingForAnimations();
 
 	UFUNCTION(BlueprintCallable)
-		void SetWeaponcollisionEnabled(ECollisionEnabled::Type CollisionEnabled);
+		void CustomCameraSettingForDualBladeAnimations();
 
 
 
-public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-private:
-
-	ECharacterState CharacterState = ECharacterState::ECS_UnEquipped;
-
-
-	UPROPERTY(BlueprintReadWrite,meta=(AllowPrivateAccess="true"))
-	EActionState ActionState = EActionState::EAS_UnOccupied;
-
-	UPROPERTY(VisibleAnywhere)
+	/* Character Components*/
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 		USpringArmComponent* CameraBoom;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere,BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 		UCameraComponent* ViewCamera;
 
+	UPROPERTY(VisibleAnywhere)
+		class UNiagaraComponent* Niagara;
+
 	UPROPERTY(EditAnywhere)
-		float RotationRate = 30;
+		float RotationRate = 40;
 
 	UPROPERTY(EditAnywhere)
 		bool IsSprinting ;
@@ -141,43 +194,56 @@ private:
 	UPROPERTY(EditAnywhere)
 		bool RunToStop;
 
+	UPROPERTY(EditAnywhere)
+		bool IsBlocking;
+
+	UPROPERTY(EditAnywhere)
+		bool BlockToStop;
+
 	UPROPERTY(VisibleInstanceOnly)
 		AItem* OverlappingItem;
 
-	UPROPERTY(VisibleInstanceOnly)
-		AWeapon* EquippedWeapon;
-
-	UPROPERTY(VisibleInstanceOnly)
-		AWeapon* EquippedWeaponLeft;
+	UPROPERTY(EditAnywhere)
+		float SprintSpeed = 1000;
 
 	UPROPERTY(EditAnywhere)
-		float SprintSpeed = 1300;
+		float OriginalSpeed;
 
-	UPROPERTY(EditAnywhere)
-		float OriginalSpeed ;
-
-
+	UPROPERTY()
+		class UWindWalkerOverlay* WindWalkerOverlay;
 
 
+
+	UPROPERTY(EditAnywhere,Category =Combat)
+	TArray<FName> DualAttackMontageSections;
+
+
+	ECharacterState CharacterState = ECharacterState::ECS_UnEquipped;
+
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+		EActionState ActionState = EActionState::EAS_UnOccupied;
 	/*
 	* Animations Montage
 	*/
 
-	UPROPERTY(EditDefaultsOnly,Category=Animations_Montages)
-	UAnimMontage* AttackMontage;
+	
 
 	UPROPERTY(EditDefaultsOnly, Category = Animations_Montages)
 		UAnimMontage* EquipMontage;
 
+	UPROPERTY(EditDefaultsOnly, Category = Animations_Montages)
+		UAnimMontage* DualBladeMontage;
 	
+	UPROPERTY(EditDefaultsOnly, Category = Animations_Montages)
+		UAnimMontage* DashDodgeMontage;
 
 
 public:
-	FORCEINLINE void SetOverlappingItem(AItem* Item) {
-		OverlappingItem = Item;
-	}
+	
 
 	 FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }
+	 FORCEINLINE EActionState GetActionState() const { return ActionState; }
 
 	 FORCEINLINE bool GetIsSprinting() {
 		 return IsSprinting;
@@ -185,6 +251,11 @@ public:
 	 FORCEINLINE bool GetRunToStop() {
 		 return RunToStop;
 	 }
-		
+	 FORCEINLINE bool GetIsBlocking() {
+		 return IsBlocking;
+	 }
+	 FORCEINLINE bool GetBlockToStop() {
+		 return BlockToStop;
+	 }
 
 };

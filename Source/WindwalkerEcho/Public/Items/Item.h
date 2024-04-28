@@ -29,6 +29,8 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void SpawnPickUpEffect();
+	virtual void SpawnPickUpSound();
 	template<typename T>
 	T Avg(T First, T Second);
 
@@ -47,8 +49,8 @@ protected:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly)
 		UStaticMeshComponent* ItemMesh;
 
-	UPROPERTY(VisibleAnywhere)
-		class USkeletalMeshComponent* SwordMesh;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UNiagaraComponent* ItemEffect;
 
 	UPROPERTY(VisibleAnywhere)
 		USphereComponent* Sphere;
@@ -59,7 +61,11 @@ private:
 	float Amplitude = 0.50f;
 	float SpeedUpToSin = 10.f;
 
+	UPROPERTY(EditAnywhere)
+		class UNiagaraSystem* PickUpEffect;
 
+	UPROPERTY(EditAnywhere)
+		USoundBase* PickUpSound;
 
 };
 

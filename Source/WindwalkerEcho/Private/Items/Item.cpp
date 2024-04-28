@@ -6,8 +6,10 @@
 #include "WindwalkerEcho/DebugMacros.h"
 #include "Components/SphereComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Characters/WindWalkerCharacter.h"
-
+#include "Interfaces/PickUpInterface.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 AItem::AItem()
@@ -18,12 +20,12 @@ AItem::AItem()
 
 	ItemMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ItemMeshComponent"));
 	RootComponent= ItemMesh;
-	SwordMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SowrdMesh"));
-	SwordMesh->SetupAttachment(RootComponent);
+
 	Sphere = CreateDefaultSubobject<USphereComponent>(TEXT("Sphere"));
 	Sphere->SetupAttachment(GetRootComponent());
 
-
+	ItemEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara Effect"));
+	ItemEffect->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned
@@ -46,8 +48,33 @@ void AItem::BeginPlay()
 	Sphere->OnComponentBeginOverlap.AddDynamic(this, &AItem::OnSphereOverlap);
 	Sphere->OnComponentEndOverlap.AddDynamic(this, &AItem::OnSphereEndOverlap);
 
+	ItemMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+	ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+}
 
+void AItem::SpawnPickUpEffect()
+{
+	if (PickUpEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			this,
+			PickUpEffect,
+			GetActorLocation());
+
+	}
+}
+
+void AItem::SpawnPickUpSound()
+{
+	if (PickUpSound)
+	{
+		UGameplayStatics::SpawnSoundAtLocation(
+			this,
+			PickUpSound,
+			GetActorLocation()
+		);
+	}
 }
 
 float AItem::TransformedSin()
@@ -63,22 +90,22 @@ float AItem::TransformedCos()
 void AItem::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherActorComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 
-	AWindWalkerCharacter* WindWalker = Cast<AWindWalkerCharacter>(OtherActor);//casting parent to child class pointer
-	const FString OtherActorName = OtherActor->GetName();
-	if (WindWalker) {
+	IPickUpInterface* PickUpInterface = Cast<IPickUpInterface>(OtherActor);//casting parent to child class pointer,casting the other actor in to the interface so that other actor can call its interface overriden function
+	
+	if (PickUpInterface) {
 		//when sphere overlap begin we make this item as the overlapping item and we have access of overlapping item pointer in the windwalker character by include item ,weapon,weapon1, header and we made a public function called equip in the weapon class to equip item so we will call that fuction from windwalker class to equip weapon and easily pass the windwalkerMesh and socket name;
-		WindWalker->SetOverlappingItem(this);//reference of this class pointer;
+		PickUpInterface->SetOverlappingItem(this);//reference of this class pointer,it will call the other actor SetOverlappingItem function
 	}
 }
 
 void AItem::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherActorComponent, int32 OtherBodyIndex)
 {
 
-	AWindWalkerCharacter* WindWalker = Cast<AWindWalkerCharacter>(OtherActor);//casting parent to child class pointer
-	const FString OtherActorName = FString("Ending overlap") + OtherActor->GetName();
-	if (WindWalker) {
+	IPickUpInterface* PickUpInterface = Cast<IPickUpInterface>(OtherActor);//casting parent to child class pointer,casting the other actor in to the interface so that other actor can call its interface overriden function
 
-		WindWalker->SetOverlappingItem(nullptr);//reference of this class pointer, want to make that item null 
+	if (PickUpInterface) {
+		//when sphere overlap begin we make this item as the overlapping item and we have access of overlapping item pointer in the windwalker character by include item ,weapon,weapon1, header and we made a public function called equip in the weapon class to equip item so we will call that fuction from windwalker class to equip weapon and easily pass the windwalkerMesh and socket name;
+		PickUpInterface->SetOverlappingItem(nullptr);//reference of this class pointer,it will call the other actor SetOverlappingItem function
 	}
 }
 

@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "Hit_Interface.generated.h"
+#include "PickUpInterface.generated.h"
 
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
-class UHit_Interface : public UInterface
+class UPickUpInterface : public UInterface
 {
 	GENERATED_BODY()
 };
@@ -16,13 +16,13 @@ class UHit_Interface : public UInterface
 /**
  * 
  */
-class WINDWALKERECHO_API IHit_Interface
+class WINDWALKERECHO_API IPickUpInterface
 {
 	GENERATED_BODY()
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
-
 public:
-	UFUNCTION(BlueprintNativeEvent)
-	void GetHit(const FVector& ImpactPoint,AActor* Hitter); //making function blueprintNativeEvent  will automatically generate its virtual function type which is implemtable in c++ and to use that we have to sufix the functions name as _Implementation 
+	virtual void SetOverlappingItem(AItem* Item);
+	virtual void AddSouls(class ASoul* Soul);
+	virtual void AddGold(class ATreasure* Treasure);
 };

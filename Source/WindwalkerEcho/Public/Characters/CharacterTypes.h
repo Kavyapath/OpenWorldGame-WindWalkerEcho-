@@ -14,7 +14,39 @@ UENUM(BlueprintType)
 enum class EActionState : uint8
 {
 	EAS_UnOccupied UMETA(DisplayName = "UnOccupied"),
+	EAS_Dodging UMETA(DisplayName = "Dodging"),
+	EAS_EquippingWeapon UMETA(DisplayName = "EquippingWeapon"),
 	EAS_Attacking UMETA(DisplayName = "Attacking"),
-	EAS_EquippingWeapon UMETA(DisplayName = "EquippingWeapon")
+	EAS_HitReaction UMETA(DisplayName = "HitReaction"),
+	EAS_Blocking UMETA(DisplayName = "Blocking"),
+	EAS_Dead UMETA(DisplayName = "Dead")
 };
 
+UENUM(BlueprintType)
+enum EDeathPose 
+{
+	
+	EDP_Death1 UMETA(DisplayName = "Death1"),
+	EDP_Death2 UMETA(DisplayName = "Death2"),
+	EDP_Death3 UMETA(DisplayName = "Death3"),
+	EDP_Death4 UMETA(DisplayName = "Death4"),
+	EDP_Death5 UMETA(DisplayName = "Death5"),
+	EDP_Death6 UMETA(DisplayName = "Death6"),
+
+	EDP_MAX UMETA(DisplayName = "DefaultMAX")
+
+};
+
+UENUM(BlueprintType)
+enum class EEnemyState : uint8
+{
+	EES_NoState UMETA(DisplayName = "NoState"),
+
+	EES_Dead UMETA(DisplayName = "Dead"),
+	EES_Patrolling UMETA(DisplayName = "Patrolling"),
+	EES_Chasing UMETA(DisplayName = "Chasing"),
+	EES_Attacking UMETA(DisplayName = "Attacking"),
+	EES_Dodging UMETA(DisplayName = "Dodging"),
+	EES_Engaged UMETA(DisplayName = "Engaging")
+	
+};

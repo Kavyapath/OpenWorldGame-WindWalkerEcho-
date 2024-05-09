@@ -75,7 +75,7 @@ playing animation montages
 
 
 	UPROPERTY(EditAnywhere,Category = Combat)
-	double WarpTargetDistance = 75.f;
+	double WarpTargetDistance = 50.f;
 	
 	UPROPERTY(VisibleAnywhere)
 		UAttributeComponent* Attribute;
@@ -84,6 +84,7 @@ playing animation montages
 		TEnumAsByte<EDeathPose> DeathPose;
 
 private:
+
 	UPROPERTY(EditAnywhere, Category = Sounds)
 		USoundBase* HitSound;
 
@@ -93,6 +94,12 @@ private:
 	/*
 *  animation montages
 */
+	UPROPERTY(EditAnywhere, Category = Combat)
+		TSubclassOf<UCameraShakeBase> HitCameraShakeClass;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+		TSubclassOf<UCameraShakeBase> DeathCameraShakeClass;
+
 	UPROPERTY(EditAnywhere, Category = Combat)
 		TArray<FName> AttackMontageSections;
 

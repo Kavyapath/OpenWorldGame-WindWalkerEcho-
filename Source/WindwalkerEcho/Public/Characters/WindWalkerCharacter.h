@@ -121,11 +121,16 @@ private:
 	virtual void Attack() override;
 	void DualBladeAttack();
 	void DashDodgeFront();
+
+
+
 	void DashDodgeBack();
+	
 	void DashDodgeLeft();
 	void DashDodgeRight();
 	virtual void Die() override;
-
+	bool HasStamina();
+	bool IsOccupied();
 	virtual bool CanOneHandedSwordAttack() override;
 	int32 PlayAttackMontageTwoHandedSword();
 	bool CanTwoHandedSwordAttack();
@@ -153,6 +158,12 @@ private:
 
 	UFUNCTION(BlueprintCallable)
 		void AttachWeaponToBack();
+
+	UFUNCTION(BlueprintCallable)
+		void EnabledSlowMo();
+
+	UFUNCTION(BlueprintCallable)
+		void DisabledSlowMo();
 
 	UFUNCTION(BlueprintCallable)
 		void AttachWeaponToHand();
@@ -186,7 +197,10 @@ private:
 		class UNiagaraComponent* Niagara;
 
 	UPROPERTY(EditAnywhere)
-		float RotationRate = 40;
+		float RotationRate = 30.f;
+
+	UPROPERTY(EditAnywhere)
+		float DefaultSpringArmLength = 300.f;
 
 	UPROPERTY(EditAnywhere)
 		bool IsSprinting ;

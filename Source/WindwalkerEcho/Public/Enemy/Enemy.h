@@ -90,6 +90,10 @@ AIBehavior
 	UPROPERTY(EditAnywhere)
 		double AttackRadius = 200.f;
 
+	UPROPERTY(EditAnywhere)
+		double AcceptanceRadius = 50.f;
+	
+
 	UPROPERTY()
 		class AAIController* EnemyController;
 	/*

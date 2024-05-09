@@ -8,7 +8,7 @@ UAttributeComponent::UAttributeComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	// ...
 }
@@ -28,8 +28,14 @@ void UAttributeComponent::BeginPlay()
 void UAttributeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
 
 	// ...
+}
+
+void UAttributeComponent::RegenerateStamina(float DeltaTime)
+{
+	Stamina = FMath::Clamp(Stamina + StaminaRegenRate * DeltaTime, 0.f, MaxStamina);
 }
 
 void UAttributeComponent::ReceiveDamage(float Damage)
@@ -40,6 +46,16 @@ void UAttributeComponent::ReceiveDamage(float Damage)
 void UAttributeComponent::AddSouls(int32 NumberOfSouls)
 {
 	Souls += NumberOfSouls;
+}
+
+void UAttributeComponent::UseStamina(float StaminaCost)
+{
+	Stamina = FMath::Clamp(Stamina - StaminaCost, 0.f, MaxStamina);
+}
+
+float UAttributeComponent::GetStaminaPercent()
+{
+	return Stamina/MaxStamina;
 }
 
 void UAttributeComponent::AddGold(int32 AmountOfGold)

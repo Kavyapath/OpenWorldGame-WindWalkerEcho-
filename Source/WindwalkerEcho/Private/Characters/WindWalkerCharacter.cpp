@@ -24,6 +24,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "WindwalkerEcho/DebugMacros.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 AWindWalkerCharacter::AWindWalkerCharacter()
@@ -47,7 +48,7 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	CameraBoom->SetupAttachment(GetRootComponent());
-	CameraBoom->TargetArmLength = 400.f;
+	CameraBoom->TargetArmLength = DefaultSpringArmLength;
 
 
 	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
@@ -134,7 +135,7 @@ int32 AWindWalkerCharacter::PlayAttackMontageTwoHandedSword()
 void AWindWalkerCharacter::Move(const FInputActionValue& Value)
 {
 	DefaultCameraSetting();
-	
+	 DisabledSlowMo();
 	if (ActionState != EActionState::EAS_UnOccupied) {
 		return;
 	}
@@ -212,7 +213,8 @@ void AWindWalkerCharacter::EndBlock()
 void AWindWalkerCharacter::Attack()
 {
 	Super::Attack();
-	if (!IsAlive()) { return; }
+	if (!IsAlive() || IsOccupied()) { return; }
+	
 	if (CanOneHandedSwordAttack()) {
 		
 			PlayAttackMontage();
@@ -226,40 +228,73 @@ void AWindWalkerCharacter::Attack()
 
 void AWindWalkerCharacter::DualBladeAttack()
 {
-	if (!IsAlive()) { return; }
-	Super::Attack();
+	if (!IsAlive() || IsOccupied() || !HasStamina()) { return; }
+	//Super::Attack();
 	if (CanTwoHandedSwordAttack()) {
 		PlayAttackMontageTwoHandedSword();
 		ActionState = EActionState::EAS_Attacking;
+	}
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->UseStamina(4 * Attribute->GetDodgeCost());
+		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
 	}
 }
 
 void AWindWalkerCharacter::DashDodgeFront()
 {
-	if (!IsAlive()) { return; }
+	if (IsOccupied() || !HasStamina()) { return; }
+
 	ActionState = EActionState::EAS_Dodging;
 	PlayMontageSection(DashDodgeMontage, FName("DodgeFront"));
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->UseStamina(Attribute->GetDodgeCost());
+		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
+	}
 }
+
+bool AWindWalkerCharacter::HasStamina()
+{
+	return Attribute && Attribute->GetStamina() > Attribute->GetDodgeCost();
+}
+
+
 
 void AWindWalkerCharacter::DashDodgeBack()
 {
-	if (!IsAlive()) { return; }
+	if (IsOccupied() || !HasStamina()) { return; }
 	ActionState = EActionState::EAS_Dodging;
 	PlayMontageSection(DashDodgeMontage, FName("DodgeBack"));
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->UseStamina(Attribute->GetDodgeCost());
+		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
+	}
+}
+
+bool AWindWalkerCharacter::IsOccupied()
+{
+	return ActionState != EActionState::EAS_UnOccupied;
 }
 
 void AWindWalkerCharacter::DashDodgeLeft()
 {
-	if (!IsAlive()) { return; }
+	if (IsOccupied() || !HasStamina()) { return; }
 	ActionState = EActionState::EAS_Dodging;
 	PlayMontageSection(DashDodgeMontage, FName("DodgeLeft"));
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->UseStamina(Attribute->GetDodgeCost());
+		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
+	}
 }
 
 void AWindWalkerCharacter::DashDodgeRight()
 {
-	if (!IsAlive()) { return; }
+	if (IsOccupied() || !HasStamina()) { return; }
 	ActionState = EActionState::EAS_Dodging;
 	PlayMontageSection(DashDodgeMontage, FName("DodgeRight"));
+	if (Attribute && WindWalkerOverlay) {
+		Attribute->UseStamina(Attribute->GetDodgeCost());
+		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
+	}
 }
 
 void AWindWalkerCharacter::Die()
@@ -383,6 +418,16 @@ void AWindWalkerCharacter::AttachWeaponToBack()
 	}
 }
 
+void AWindWalkerCharacter::EnabledSlowMo()
+{
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 0.6);
+}
+
+void AWindWalkerCharacter::DisabledSlowMo()
+{
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1);
+}
+
 void AWindWalkerCharacter::AttachWeaponToHand()
 {
 
@@ -420,7 +465,7 @@ void AWindWalkerCharacter::CustomCameraSetting(float SpringArmLength, float Pitc
 
 void AWindWalkerCharacter::DefaultCameraSetting()
 {
-	CameraBoom->TargetArmLength = 400.f;
+	CameraBoom->TargetArmLength = DefaultSpringArmLength;
 	AddControllerPitchInput(0.f);
 }
 
@@ -432,7 +477,7 @@ void AWindWalkerCharacter::CustomCameraSettingForAnimations()
 void AWindWalkerCharacter::CustomCameraSettingForDualBladeAnimations()
 {
 	
-	CustomCameraSetting(600.f,1.f);
+	CustomCameraSetting(600.f,1.5f);
 }
 
 
@@ -476,6 +521,11 @@ void AWindWalkerCharacter::Tick(float DeltaTime)
 		CombatTarget = HitActor;
 	
 	}
+	if (Attribute && WindWalkerOverlay ) {
+		Attribute->RegenerateStamina(DeltaTime);
+		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
+	}
+	
 
 
 

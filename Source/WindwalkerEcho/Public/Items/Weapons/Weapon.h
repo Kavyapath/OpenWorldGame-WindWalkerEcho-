@@ -23,7 +23,7 @@ public:
 	AWeapon();
 	void Equip(USceneComponent* InParent,FName InSocketName,AActor* NewOwner,APawn* NewInstigator);
 	void DisableCollision();
-	void DeactivateCollision();
+	void DeactivateNiagaraEffect();
 	void AttachMeshToSocket(USceneComponent* InParent, const FName& InSocketName);
 
 	void EquippingSound();

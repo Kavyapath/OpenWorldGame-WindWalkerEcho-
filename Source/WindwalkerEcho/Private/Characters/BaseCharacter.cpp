@@ -210,10 +210,16 @@ void ABaseCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* H
 	
 	if (IsAlive() && Hitter) {
 
+		if (HitCameraShakeClass) {
+			GetWorld()->GetFirstPlayerController()->ClientStartCameraShake(HitCameraShakeClass);
+		}
 		DirectionalHit(Hitter->GetActorLocation());
 	}
 	else {
 		//playing the death montages
+		if (DeathCameraShakeClass) {
+			GetWorld()->GetFirstPlayerController()->ClientStartCameraShake(DeathCameraShakeClass);
+		}
 		Die();
 	}
 

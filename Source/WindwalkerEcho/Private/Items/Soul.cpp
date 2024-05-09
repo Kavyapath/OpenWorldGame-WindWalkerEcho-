@@ -3,6 +3,7 @@
 
 #include "Items/Soul.h"
 #include "Interfaces/PickUpInterface.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 
 void ASoul::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherActorComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -18,4 +19,37 @@ void ASoul::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* Ot
 	
 	}
 	
+}
+
+void ASoul::BeginPlay()
+{
+	Super::BeginPlay();
+	const FVector Start = GetActorLocation();
+	const FVector End = Start - FVector(0.f, 0.f, 2000.f);
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectsTypes;
+	ObjectsTypes.Add(EObjectTypeQuery::ObjectTypeQuery1);
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(GetOwner());
+	FHitResult HitResult;
+	UKismetSystemLibrary::LineTraceSingleForObjects(this,
+		Start,
+		End,
+		ObjectsTypes,
+		false, 
+		ActorsToIgnore,
+		EDrawDebugTrace::None,
+		HitResult,
+		true);
+	DesiredZ=HitResult.ImpactPoint.Z + 60.f ;
+}
+
+
+void ASoul::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	const double LocationZ = GetActorLocation().Z;
+	if (DesiredZ < LocationZ) {
+		const FVector DeltaLocation = FVector(0.f, 0.f, DriftRate*DeltaTime);
+		AddActorWorldOffset(DeltaLocation);
+	}
 }

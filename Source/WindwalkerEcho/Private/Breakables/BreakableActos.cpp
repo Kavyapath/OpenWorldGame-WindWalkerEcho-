@@ -30,11 +30,12 @@ void ABreakableActos::GetHit_Implementation(const FVector& ImpactPoint,AActor* H
 	if (bBroken) {
 		return;
 	}
+	Tags.Remove(FName("Breakables"));
 	bBroken = true;
 	UWorld* World = GetWorld();
 	if (World && TreasureClasses.Num() > 0) {
-		FVector Location = GetActorLocation();
-		Location.Z += 75.f;
+		FVector Location = GetActorLocation()+120.f;
+		Location.Z += 100.f;
 		const int32 selection = FMath::RandRange(0, TreasureClasses.Num() - 1);
 		 if (selection >= 0 && selection < TreasureClasses.Num()) {
 			 World->SpawnActor<ATreasure>(TreasureClasses[selection], Location, GetActorRotation());
@@ -48,6 +49,7 @@ void ABreakableActos::GetHit_Implementation(const FVector& ImpactPoint,AActor* H
 void ABreakableActos::BeginPlay()
 {
 	Super::BeginPlay();
+	Tags.Add(FName("Breakables"));
 	
 }
 

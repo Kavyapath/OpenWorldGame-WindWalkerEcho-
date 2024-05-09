@@ -48,7 +48,7 @@ void AWeapon::Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOw
 	SetInstigator(NewInstigator);
 	AttachMeshToSocket(InParent, InSocketName);
 	DisableCollision();
-	DeactivateCollision();
+	DeactivateNiagaraEffect();
 }
 
 void AWeapon::DisableCollision()
@@ -58,7 +58,7 @@ void AWeapon::DisableCollision()
 	}
 }
 
-void AWeapon::DeactivateCollision()
+void AWeapon::DeactivateNiagaraEffect()
 {
 	if (ItemEffect) {
 		ItemEffect->Deactivate();

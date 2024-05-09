@@ -118,6 +118,9 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 	ClearAttackTimer();
 	SetWeaponcollisionEnabled(ECollisionEnabled::NoCollision);
 	StopAttackMontage();
+	if (IsInsideAttackRadius()) {
+		if(!IsDead())StartAttackTimer();
+	}
 	
 
 }
@@ -349,6 +352,7 @@ void AEnemy::AttackEnd()
 void AEnemy::Die()
 {
 	Super::Die();
+	Tags.Remove(FName("Enemy"));
 	EnemyState = EEnemyState::EES_Dead;
 	
 	HideHealthBar();
@@ -366,11 +370,12 @@ void AEnemy::SpawnSoul()
 {
 	UWorld* World = GetWorld();
 	if (World && SoulClass && Attribute) {
-	
-		ASoul* SpawnSoul=World->SpawnActor<ASoul>(SoulClass, GetActorLocation(), GetActorRotation());
+		const FVector SpawnLocation = GetActorLocation() + FVector(0.f, 0.f, 125.f);
+		ASoul* SpawnSoul=World->SpawnActor<ASoul>(SoulClass, SpawnLocation, GetActorRotation());
 		if (SpawnSoul)
 		{
 			SpawnSoul->SetSouls(Attribute->GetSoul());
+			SpawnSoul->SetOwner(this);
 		}
 	}
 }
@@ -396,7 +401,7 @@ void AEnemy::MoveToTarget(AActor* Target)
 
 		FAIMoveRequest MoveRequest;
 		MoveRequest.SetGoalActor(Target);//Setting the patrol target
-		MoveRequest.SetAcceptanceRadius(50.f);
+		MoveRequest.SetAcceptanceRadius(AcceptanceRadius);
 
 		//FNavPathSharedPtr NavPath;
 		EnemyController->MoveTo(MoveRequest);//return FStruct, EnemyController->MoveTo(MoveRequest, &NavPath)

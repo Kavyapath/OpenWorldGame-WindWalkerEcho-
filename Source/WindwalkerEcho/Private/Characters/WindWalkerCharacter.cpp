@@ -37,7 +37,8 @@ AWindWalkerCharacter::AWindWalkerCharacter()
 	bUseControllerRotationRoll = false;
 
 	OriginalSpeed = GetCharacterMovement()->MaxWalkSpeed;
-	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->bUseControllerDesiredRotation = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0);
 
 	GetMesh()->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);

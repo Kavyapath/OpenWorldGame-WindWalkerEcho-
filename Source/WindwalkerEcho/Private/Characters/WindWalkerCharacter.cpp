@@ -522,6 +522,10 @@ void AWindWalkerCharacter::Tick(float DeltaTime)
 		CombatTarget = HitActor;
 	
 	}
+	else {
+		CombatTarget = nullptr;
+	}
+
 	if (Attribute && WindWalkerOverlay ) {
 		Attribute->RegenerateStamina(DeltaTime);
 		WindWalkerOverlay->SetStaminaBarPercent(Attribute->GetStaminaPercent());
